@@ -1,20 +1,9 @@
-# -- ------------------------------------------------------------------------------------ -- #
-# -- Proyecto: Laboratorio 2, Microestructura y Sistema de trading                           -- #
-# -- Codigo: Funciones.py - script con funciones básicas de uso en proyecto                               -- #
-# -- Rep:https://github.com/AlbertoNuno/Lab_2_AENG     -- #
-# -- Autor: Alberto Nuño                                                              -- #
-# -- ------------------------------------------------------------------------------------ -- #
-
-
-                                   # funciones numericas
+# import numpy as np                                      # funciones numericas
 import pandas as pd                                       # dataframes y utilidades
 from datetime import timedelta                            # diferencia entre datos tipo tiempo
 from oandapyV20 import API                                # conexion con broker OANDA
 import oandapyV20.endpoints.instruments as instruments    # informacion de precios historicos
 
-
-# -- --------------------------------------------------------- FUNCION: Descargar precios -- #
-# -- Descargar precios historicos con OANDA
 
 def f_precios_masivos(p0_fini, p1_ffin, p2_gran, p3_inst, p4_oatk, p5_ginc):
     """
@@ -154,4 +143,63 @@ def f_precios_masivos(p0_fini, p1_ffin, p2_gran, p3_inst, p4_oatk, p5_ginc):
         # resetear index en dataframe resultante porque guarda los indices del dataframe pasado
         r_df_final = r_df_final.reset_index(drop=True)
 
-        return r_df_final
+    return r_df_final
+
+
+def read_file(file_name):
+    data = pd.read_excel("C:/Users/anuno/OneDrive/Documents/ITESO/Sistemas y microestructuras de trading/Code/Lab_2_AENG/"+
+                         file_name)
+    data = data.loc[data['Type']!='balance']
+    data.columns = [list(data.columns)[i].lower() for i in range(0, len(data.columns))]
+    numcols = ['s/l', 't/p', 'commission', 'openprice', 'closeprice', 'profit', 'size', 'swap', 'taxes', 'order']
+    data[numcols] = data[numcols].apply(pd.to_numeric)
+    data=data.reset_index(0,len(data['openprice']))
+    def convert_symbol (symbol):
+        new_symbol=""
+        for i in symbol:
+            if i != '-':
+                new_symbol+=i
+            else:
+                break
+        return new_symbol
+    data['symbol']=list([convert_symbol(data['symbol'][i]) for i in range(len(data['symbol']))])
+
+
+    return data
+
+
+
+def f_pip_size(param_ins):
+    inst = param_ins.lower()
+
+    pips_inst = {'usdjpy':100,'gbpusd':10000, 'eurusd':10000}
+    return pips_inst[inst]
+
+def f_columnas_tiempos(param_data):
+    param_data['closetime']= pd.to_datetime(param_data['closetime'])
+    param_data['opentime']=pd.to_datetime(param_data['opentime'])
+
+    param_data['time']=[((param_data['closetime'][i]-param_data['opentime'][i]).delta)/1e9 for i in param_data.index]
+
+    return param_data
+
+def f_columnas_pips(param_data):
+    if param_data.type == "buy":
+        param_data['pips']=(param_data['closeprice']-param_data['openprice'])*f_pip_size(param_data['symbol'])
+    else:
+        param_data['pips']=(param_data['openprice']-param_data['closeprice'])*f_pip_size(param_data['symbol'])
+
+
+
+
+
+
+    return param_data
+
+
+
+
+
+
+#def f_columns_datos
+
