@@ -3,7 +3,10 @@ import pandas as pd                                       # dataframes y utilida
 from datetime import timedelta                            # diferencia entre datos tipo tiempo
 from oandapyV20 import API                                # conexion con broker OANDA
 import oandapyV20.endpoints.instruments as instruments    # informacion de precios historicos
-
+import numpy as np
+pd.set_option('display.max_rows',5000)
+pd.set_option('display.max_columns',5000)
+pd.set_option('display.width',500)
 
 def f_precios_masivos(p0_fini, p1_ffin, p2_gran, p3_inst, p4_oatk, p5_ginc):
     """
@@ -172,7 +175,11 @@ def read_file(file_name):
 def f_pip_size(param_ins):
     inst = param_ins.lower()
 
-    pips_inst = {'usdjpy':100,'gbpusd':10000, 'eurusd':10000}
+    pips_inst = {'usdjpy':100,'gbpusd':10000, 'eurusd':10000,
+                 'eurcad': 10000, 'eurgbp': 10000,'audusd': 10000, 'audjpy-2': 100,
+                 'usdmxn':10000,'usdcad':10000}
+
+
     return pips_inst[inst]
 
 def f_columnas_tiempos(param_data):
@@ -183,23 +190,46 @@ def f_columnas_tiempos(param_data):
 
     return param_data
 
+
 def f_columnas_pips(param_data):
-    if param_data.type == "buy":
-        param_data['pips']=(param_data['closeprice']-param_data['openprice'])*f_pip_size(param_data['symbol'])
-    else:
-        param_data['pips']=(param_data['openprice']-param_data['closeprice'])*f_pip_size(param_data['symbol'])
+
+    def pipsBy_trade(trade):
+
+
+        pips = 0
+        if trade["type"] == "buy":
+
+            pips= (trade['closeprice'] - trade['openprice']) * f_pip_size(trade['symbol'])
+        else:
+            pips= (trade['openprice'] - trade['closeprice']) * f_pip_size(trade['symbol'])
+
+        return pips
+
+    param_data['pips']=list([pipsBy_trade(param_data.iloc[i]) for i in range(len(param_data))])
+
+    return param_data
+
+def f_estdisticas_ba (param_data):
+
+    t_status = lambda open, close: "Win" if close>open else "Loss"
+    param_data["Trade result"] = list([t_status(param_data.iloc[i]["openprice"], param_data.iloc[i]["closeprice"])for i in range(len(param_data))])
+    wins= len(param_data.loc[param_data["profit"]>0])
+    loses= len(param_data)-wins
+    buy = param_data.loc[param_data["type"]=='buy']
+
+    df1_tabla ={ 'Ganadoras':wins,
+                 'Ganadoras_v': param_data.loc[param_data["type"]=="buy" and param_data["Trade result"]=='Win']
 
 
 
+}
 
 
+    #df1_tabla['Ops totales']=len(param_data)
 
     return param_data
 
 
 
 
-
-
-#def f_columns_datos
 
