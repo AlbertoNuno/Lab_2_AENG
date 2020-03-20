@@ -3,7 +3,7 @@ import pandas as pd                                       # dataframes y utilida
 from datetime import timedelta                            # diferencia entre datos tipo tiempo
 from oandapyV20 import API                                # conexion con broker OANDA
 import oandapyV20.endpoints.instruments as instruments    # informacion de precios historicos
-import numpy as np
+
 pd.set_option('display.max_rows',5000)
 pd.set_option('display.max_columns',5000)
 pd.set_option('display.width',500)
@@ -211,23 +211,49 @@ def f_columnas_pips(param_data):
 
 def f_estdisticas_ba (param_data):
 
-    t_status = lambda open, close: "Win" if close>open else "Loss"
-    param_data["Trade result"] = list([t_status(param_data.iloc[i]["openprice"], param_data.iloc[i]["closeprice"])for i in range(len(param_data))])
-    wins= len(param_data.loc[param_data["profit"]>0])
-    loses= len(param_data)-wins
-    buy = param_data.loc[param_data["type"]=='buy']
-
-    df1_tabla ={ 'Ganadoras':wins,
-                 'Ganadoras_v': param_data.loc[param_data["type"]=="buy" and param_data["Trade result"]=='Win']
+    def rank_currency(currency,data):
+        data = data.loc[data["symbol"]==currency]
+        proportion = len(data.loc[data["profit"]>0])/len(data)
+        return proportion
 
 
 
-}
+    measure_names = ["Ops totales", "Ganadoras","Ganadoras_c","Ganadoras_v","Perdedoras","Perdedoras_c","Perdedoras_v",
+                     "Media(Profit)","Media(pips)","r_efectividad","r_proporción","r_efectividad_c","r_efectividad_v"]
+    df1_tabla = pd.DataFrame()
+    median = lambda data: data.iloc[int((len(data)+1)/2)] if len(data)%2 != 0 else (data.iloc[int(len(data)-1)] +
+                                                                                    data.iloc[int((len(data)+1)/2)])
+
+    measures = {'Ops totales': len(param_data),
+               'Ganadoras':len(param_data.loc[param_data["profit"] > 0]),
+               'Ganadoras_c': len(param_data.loc[(param_data["type"] == "buy") & (param_data["profit"] > 0)]),
+               'Ganadoras_v': len(param_data.loc[(param_data["type"] == 'sell') & (param_data["profit"] > 0)]),
+               'Perdedoras': len(param_data.loc[param_data["profit"] < 0]),
+               'Perdedoras_c': len(param_data.loc[(param_data["type"] == "buy") & (param_data["profit"] < 0)]),
+               'Perdedoras_v': len(param_data.loc[(param_data["type"] == "sell") & (param_data["profit"] < 0)]),
+               'Media(Profit)' : median(param_data["profit"]),
+               'Media(pips)': median(param_data["pips"]),
+               'r_efectividad': len(param_data.loc[param_data["profit"]>0])/len(param_data["profit"]),
+               'r_proporción': len(param_data.loc[param_data["profit"]<0])/len(param_data["profit"]),
+               'r_efectividad_c':len(param_data.loc[(param_data["type"]=="buy") & (param_data["profit"]>0)])/len(
+                                     param_data["profit"]),
+               'r_efectividad_v':len(param_data.loc[(param_data["type"]=="sell") & param_data["profit"]<0])/len(
+                                     param_data["profit"])
+
+                                   }
+
+    traded_currencies = param_data["symbol"].unique()
+    df2_ranking = pd.DataFrame({"Symbol":traded_currencies,"rank":0})
+    df2_ranking["rank"]= (list((rank_currency(i,param_data)) for i in traded_currencies))
+    df2_ranking=df2_ranking.sort_values(by="rank",ascending=False)
+
+    df1_tabla["Medias"] = list([measures[i] for i in measure_names])
+
+    stats_dict = {'df_1_tabla':df1_tabla,
+                  'df_2_ranking': df2_ranking}
+    return stats_dict
 
 
-    #df1_tabla['Ops totales']=len(param_data)
-
-    return param_data
 
 
 
