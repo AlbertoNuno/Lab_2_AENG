@@ -3,7 +3,7 @@ import pandas as pd                                       # dataframes y utilida
 from datetime import timedelta                            # diferencia entre datos tipo tiempo
 from oandapyV20 import API                                # conexion con broker OANDA
 import oandapyV20.endpoints.instruments as instruments    # informacion de precios historicos
-
+import numpy as np
 pd.set_option('display.max_rows',5000)
 pd.set_option('display.max_columns',5000)
 pd.set_option('display.width',500)
@@ -216,8 +216,6 @@ def f_estdisticas_ba (param_data):
         proportion = len(data.loc[data["profit"]>0])/len(data)
         return proportion
 
-
-
     measure_names = ["Ops totales", "Ganadoras","Ganadoras_c","Ganadoras_v","Perdedoras","Perdedoras_c","Perdedoras_v",
                      "Media(Profit)","Media(pips)","r_efectividad","r_proporción","r_efectividad_c","r_efectividad_v"]
     df1_tabla = pd.DataFrame()
@@ -253,7 +251,10 @@ def f_estdisticas_ba (param_data):
                   'df_2_ranking': df2_ranking}
     return stats_dict
 
-
+def performance_measures(param_data):
+    performance = pd.DataFrame()
+    performance["capital_acm"] = list([np.cumsum(i)for i in param_data["profit"]])
+    return performance
 
 
 
