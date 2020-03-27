@@ -206,7 +206,8 @@ def f_columnas_pips(param_data):
         return pips
 
     param_data['pips']=list([pipsBy_trade(param_data.iloc[i]) for i in range(len(param_data))])
-
+    param_data['pips_acm'] = param_data['pips'].cumsum()
+    param_data['profit_acm']=param_data['profit'].cumsum()
     return param_data
 
 def f_estdisticas_ba (param_data):
@@ -251,12 +252,31 @@ def f_estdisticas_ba (param_data):
                   'df_2_ranking': df2_ranking}
     return stats_dict
 
-def performance_measures(param_data):
+def cumulative_capital(param_data):
     performance = pd.DataFrame()
-    performance["capital_acm"] = list([np.cumsum(i)for i in param_data["profit"]])
-    return performance
+    performance["capital_acm"] = param_data['profit_acm']+5000
+
+    return param_data
+
+def f_profit_diario(param_data):
+    profit_diario = pd.DataFrame()
+    dates = param_data["closetime"].sort_values()
+
+    date_range = pd.date_range(start=dates.iloc[0], end=dates.iloc[-1],freq='D')##no llega hasta el final a menos que
+    # se ponga a mano
+
+    #dates_r = pd.unique(param_data["closetime"])
+    profit_diario["timestamp"] = list([str(i)[0:10] for i in date_range ])
+    param_data["closetime"]=list([str(i)[0:10] for i in param_data["closetime"]])#notar quee las fechas hasta antes de
+    #este punto no están ordenadas.
+    profit_diario["profit_d"] = 0
+    for i in range(len(profit_diario)):
+        for j in range(len(param_data)):
+            if profit_diario["timestamp"][i] == param_data["closetime"][j]:
+                profit_diario["profit_d"][i] += param_data["profit"][j]
+
+    # profit_diario["profit_d"]=param_data["profit"]
+    # profit_diario= profit_diario.groupby("timestamp")["profit_d"].sum()
 
 
-
-
-
+    return profit_diario
