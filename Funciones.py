@@ -165,8 +165,8 @@ def read_file(file_name):
             else:
                 break
         return new_symbol
-    data['symbol']=list([convert_symbol(data['symbol'][i]) for i in range(len(data['symbol']))])
-
+    data['symbol']=list([convert_symbol(str(data['symbol'][i])) for i in range(len(data['symbol']))])
+    data = data.dropna()
 
     return data
 
@@ -175,9 +175,10 @@ def read_file(file_name):
 def f_pip_size(param_ins):
     inst = param_ins.lower()
 
-    pips_inst = {'usdjpy':100,'gbpusd':10000, 'eurusd':10000,
+    pips_inst = {'usdjpy':100,'gbpusd':10000, 'eurusd':10000,'xauusd':10000,
                  'eurcad': 10000, 'eurgbp': 10000,'audusd': 10000, 'audjpy-2': 100,
-                 'usdmxn':10000,'usdcad':10000}
+                 'eurjpy':100,'gbpjpy':100,'usdmxn':10000,'usdcad':10000,
+                 'btcusd':10000}
 
 
     return pips_inst[inst]
@@ -258,25 +259,20 @@ def cumulative_capital(param_data):
 
     return param_data
 
+
 def f_profit_diario(param_data):
-    profit_diario = pd.DataFrame()
-    dates = param_data["closetime"].sort_values()
 
-    date_range = pd.date_range(start=dates.iloc[0], end=dates.iloc[-1],freq='D')##no llega hasta el final a menos que
-    # se ponga a mano
+    start = str(param_data["closetime"].min())[0:10]
+    end = str(param_data["closetime"].max())[0:10]
+    date_range = pd.date_range(start=start, end=end, freq='D')
+    param_data["closetime"]=list([str(i)[0:10] for i in param_data["closetime"]])
+    profitd = pd.DataFrame()
+    profitd["closetime"]=list(str(i)[0:10] for i in date_range)
+    profitd["profit"]=0
 
-    #dates_r = pd.unique(param_data["closetime"])
-    profit_diario["timestamp"] = list([str(i)[0:10] for i in date_range ])
-    param_data["closetime"]=list([str(i)[0:10] for i in param_data["closetime"]])#notar quee las fechas hasta antes de
-    #este punto no están ordenadas.
-    profit_diario["profit_d"] = 0
-    for i in range(len(profit_diario)):
-        for j in range(len(param_data)):
-            if profit_diario["timestamp"][i] == param_data["closetime"][j]:
-                profit_diario["profit_d"][i] += param_data["profit"][j]
-
-    # profit_diario["profit_d"]=param_data["profit"]
-    # profit_diario= profit_diario.groupby("timestamp")["profit_d"].sum()
-
-
-    return profit_diario
+    profit_diario=param_data.groupby('closetime')['profit'].sum()
+    for i in range(len(profitd)):
+        for j in range(len(profit_diario)):
+            if profitd["closetime"][i]==profit_diario.index[j]:
+                profitd["profit"][i]=profit_diario[j]
+    return profitd
