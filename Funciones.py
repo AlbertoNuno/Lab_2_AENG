@@ -1,9 +1,9 @@
-# import numpy as np                                      # funciones numericas
 import pandas as pd                                       # dataframes y utilidades
 from datetime import timedelta                            # diferencia entre datos tipo tiempo
 from oandapyV20 import API                                # conexion con broker OANDA
 import oandapyV20.endpoints.instruments as instruments    # informacion de precios historicos
 import numpy as np
+import Datos
 pd.set_option('display.max_rows',5000)
 pd.set_option('display.max_columns',5000)
 pd.set_option('display.width',500)
@@ -266,13 +266,91 @@ def f_profit_diario(param_data):
     end = str(param_data["closetime"].max())[0:10]
     date_range = pd.date_range(start=start, end=end, freq='D')
     param_data["closetime"]=list([str(i)[0:10] for i in param_data["closetime"]])
-    profitd = pd.DataFrame()
-    profitd["closetime"]=list(str(i)[0:10] for i in date_range)
-    profitd["profit"]=0
+    for i in range(len(param_data)):
+        date = param_data["closetime"][i]
+        date = date.split('.')
+        new = '-'
+        new = new.join(date)
+        param_data["closetime"][i]=new
+        profitd = pd.DataFrame()
+        profitd["closetime"] = list(str(i)[0:10] for i in date_range)
+        profitd["profit"] = 0
 
-    profit_diario=param_data.groupby('closetime')['profit'].sum()
+        profit_diario = param_data.groupby('closetime')['profit'].sum()
+
     for i in range(len(profitd)):
         for j in range(len(profit_diario)):
-            if profitd["closetime"][i]==profit_diario.index[j]:
-                profitd["profit"][i]=profit_diario[j]
+            if profitd["closetime"][i] == profit_diario.index[j]:
+                profitd["profit"][i] = profit_diario[j]
+    profitd["profit_acm_d"]=profitd["profit"].cumsum()+5000
+
     return profitd
+
+
+def f_estafisticas_mad(param_data):
+    profit_data = f_profit_diario(param_data)
+
+    rf = .08/300
+    rendimiento_log = lambda x : np.log(x/x.shift(1))[1:]
+    rp = rendimiento_log(profit_data["profit_acm_d"])
+
+    sigma = np.std(rp)
+
+    rp = np.mean(rp)
+    sharpe = (rp - rf) / sigma
+    sell = param_data.loc[param_data["type"] == 'sell']
+    buy = param_data.loc[param_data["type"] == 'buy']
+    sell = sell.reset_index(drop=True)
+    buy = buy.reset_index(drop=True)
+    profit_sell = f_profit_diario(sell)
+    profit_buy = f_profit_diario(buy)
+    MAR = 0.30 / 300
+    sortino_rate = lambda RP, MAR, TDD: (RP - MAR) / TDD
+    rp_buy = rendimiento_log(profit_buy["profit_acm_d"])
+    rp_sell = rendimiento_log(profit_sell["profit_acm_d"])
+    TDD_buy = list(i for i in rp_buy if i < MAR)
+    TDD_buy = np.std(TDD_buy)
+    rp_buy = np.mean(rp_buy)
+    sortino_buy = sortino_rate(rp_buy, MAR, TDD_buy)
+    TDD_sell = list(i for i in rp_sell if i < MAR)
+    TDD_sell = np.std(TDD_sell)
+    rp_sell = np.mean(rp_sell)
+    sortino_sell = sortino_rate(rp_sell, MAR, TDD_sell)
+
+    fecha_inicial = pd.to_datetime(profit_data["closetime"].min()).tz_localize('GMT')
+    fecha_inicial = fecha_inicial + timedelta(days=1)
+    fecha_final = pd.to_datetime(profit_data["closetime"].max()).tz_localize('GMT')
+    fecha_final = fecha_final + timedelta(days=3)
+    sp500 = f_precios_masivos(fecha_inicial, fecha_final, 'D', 'SPX500_USD', Datos.token, 4900)
+    sp500_closes = pd.DataFrame(float(i) for i in sp500["Close"])
+
+    profit_data["weekday"]='-'
+    for i in range(len(profit_data)):
+        date = profit_data["closetime"][i]
+        date =pd.to_datetime(date)
+        profit_data["weekday"][i]=date.weekday()
+    profit_data = profit_data.loc[profit_data["weekday"]!=5] #quita rendimientos de los  domingos
+
+    profit_data = profit_data.reset_index(drop=True)
+    if len(profit_data)==len(sp500_closes):
+        tracking_error = profit_data["profit_acm_d"]-sp500_closes[0]
+    else :
+        tracking_error = 0
+    tracking_error = np.std(tracking_error)
+    information_ratio =(np.mean(profit_data["profit_acm_d"])-np.mean(sp500_closes))/tracking_error
+    metrics = {'Sharpe ratio': sharpe,
+               'Sortino compra': sortino_buy,
+               'Sortino venta': sortino_sell,
+               'Information ratio': information_ratio
+    }
+    ### terminar drawdown, drawup
+    return information_ratio
+#TERMINAR
+
+
+
+
+
+
+
+
