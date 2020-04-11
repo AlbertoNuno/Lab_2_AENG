@@ -374,6 +374,8 @@ def f_be_de (param_data):
 
     }#diccionario anidado para resultados
     timestamp_ocurrencia = 0
+    status_quo = 0
+    count_aversion=0
     resultados= pd.DataFrame()
     for i in range(len(winners)):
         winner = winners.iloc[i]
@@ -398,8 +400,17 @@ def f_be_de (param_data):
                             "ratio_cp_cg" : loser["profit"]/winner["profit"]
                             } #llave operacion
 
-                numero_operacion = "Operacion_"+str(ocurrencias)
-                info_sesgo["Ocurrencias"]["Operaciones"][numero_operacion] = operacion
+            if loser["profit"]/winner["profit"]< winner["profit"]/loser["profit"]:
+                status+=1
+            if loser["profit"]/winner["profit"] >1.5:
+                count_aversion+=1
+
+            numero_operacion = "Operacion_"+str(ocurrencias)
+            info_sesgo["Ocurrencias"]["Operaciones"][numero_operacion] = operacion
+
+    resultados["Ocurrencias"] = ocurrencias
+    resultados["status_quo"] =(status/ocurrencias)*100
+    resultados["aversion perdida"]=(count_aversion/ocurrencias)*100
 
     return info_sesgo
 
