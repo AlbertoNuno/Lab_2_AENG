@@ -254,8 +254,9 @@ def f_estdisticas_ba (param_data):
     return stats_dict
 
 def cumulative_capital(param_data):
-    performance = pd.DataFrame()
-    performance["capital_acm"] = param_data['profit_acm']+5000
+
+    param_data = f_columnas_pips(param_data)
+    param_data["capital_acm"] = param_data['profit_acm']+5000
 
     return param_data
 
@@ -265,7 +266,8 @@ def f_profit_diario(param_data):
     start = str(param_data["closetime"].min())[0:10]
     end = str(param_data["closetime"].max())[0:10]
     date_range = pd.date_range(start=start, end=end, freq='D')
-    param_data["closetime"]=list([str(i)[0:10] for i in param_data["closetime"]])
+    data2 = param_data
+    data2["closetime"]=list([str(i)[0:10] for i in data2["closetime"]])
     for i in range(len(param_data)):
         date = param_data["closetime"][i]
         date = date.split('.')
@@ -320,7 +322,7 @@ def f_estafisticas_mad(param_data):
     fecha_inicial = pd.to_datetime(profit_data["closetime"].min()).tz_localize('GMT')
     fecha_inicial = fecha_inicial + timedelta(days=1)
     fecha_final = pd.to_datetime(profit_data["closetime"].max()).tz_localize('GMT')
-    fecha_final = fecha_final + timedelta(days=3)
+    fecha_final = fecha_final + timedelta(days=2)
     sp500 = f_precios_masivos(fecha_inicial, fecha_final, 'D', 'SPX500_USD', Datos.token, 4900)
     sp500_closes = pd.DataFrame(float(i) for i in sp500["Close"])
 
@@ -341,10 +343,77 @@ def f_estafisticas_mad(param_data):
     metrics = {'Sharpe ratio': sharpe,
                'Sortino compra': sortino_buy,
                'Sortino venta': sortino_sell,
-               'Information ratio': information_ratio
+               'Information ratio': float(information_ratio)
     }
     ### terminar drawdown, drawup
     return information_ratio
+
+def f_be_de (param_data):
+    param_data = cumulative_capital(param_data)
+    status = lambda profit: "Win" if profit >0 else "Lose"
+    param_data["status"] = list(status(i) for i in param_data["profit"])
+    ratio = lambda trade_status,desired_status,trade_profit, c_capital: (trade_profit/c_capital)*100 if trade_status==desired_status else 0
+    param_data["profit"]= list(float(i) for i in param_data["profit"])
+    param_data["capital_acm"]=list(float(i) for i in param_data["capital_acm"])
+
+    param_data["trade status"] =list(status(i) for i in param_data["profit"])
+    param_data["ratio_cp_capital_acm"]=list(ratio(param_data["trade status"][i],"Lose",param_data["profit"][i],param_data["capital_acm"][i])for i in range(len(param_data))) # ratio para operaciones perdedoras
+    param_data["ratio_cg_capital_acm"]=list(ratio(param_data["trade status"][i],"Win",param_data["profit"][i],param_data["capital_acm"][i])for i in range(len(param_data)))# ratio para operaciones ganadoras
+
+    winners = param_data.loc[param_data["trade status"]=="Win"]
+    losers =param_data.loc[param_data["trade status"]=="Lose"]
+    ocurrencias = 0
+
+
+    info_sesgo = { 'Ocurrencias':
+                       {'Cantidad':ocurrencias,
+                        'Operaciones':{}
+                        },#llave de ocurrencias y operaciones
+
+           '        Resultados':{'Ferrari':'Cavallino Rampante'}
+
+    }#diccionario anidado para resultados
+    timestamp_ocurrencia = 0
+    resultados= pd.DataFrame()
+    for i in range(len(winners)):
+        winner = winners.iloc[i]
+        for j in range(len(losers)):
+            closeDate_winner = winner["closetime"]
+            loser = losers.iloc[j]
+            date_range = pd.date_range(loser["opentime"],loser["closetime"],freq="D") # periodo de tiempo en el que una operación perdedora estuvo abierta
+            if closeDate_winner in date_range:
+                ocurrencias+=1
+                timestamp_ocurrencia = closeDate_winner # fecha de cierre de operación ganadora que incurre en el sesgo
+                operacion ={'Operaciones': {'Ganadora': {'instrumento':winner["symbol"],'Volumen':winner["size"],
+                                                         'Sentido':winner["type"], "Capital_ganadora":winner["capital_acm"]
+                                                         } # checar si capital_acm es lo correcto
+
+
+                    ,'Perdedora': {'instrumento':loser["symbol"],'Volumen':loser["size"],
+                                                         'Sentido':loser["type"], "Capital_ganadora":loser["capital_acm"]
+                                                         } # checar si capital_acm es lo correcto
+                                            }  # llave operaciones
+                            ,"ratio_cp_capital_acm":loser["ratio_cp_capital_acm"],
+                            "ratio_cg_capital_acm":winner["ratio_cg_capital_acm"],
+                            "ratio_cp_cg" : loser["profit"]/winner["profit"]
+                            } #llave operacion
+
+                numero_operacion = "Operacion_"+str(ocurrencias)
+                info_sesgo["Ocurrencias"]["Operaciones"][numero_operacion] = operacion
+
+    return info_sesgo
+
+
+
+
+
+
+
+
+
+
+
+
 #TERMINAR
 
 
