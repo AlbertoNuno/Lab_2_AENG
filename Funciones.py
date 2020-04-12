@@ -4,6 +4,10 @@ from oandapyV20 import API                                # conexion con broker 
 import oandapyV20.endpoints.instruments as instruments    # informacion de precios historicos
 import numpy as np
 import Datos
+import plotly.graph_objects as go
+import plotly.io as pio #renderizador de imagenes
+pio.renderers.default="browser"  #renderizador de imagenes para correr en script
+
 pd.set_option('display.max_rows',5000)
 pd.set_option('display.max_columns',5000)
 pd.set_option('display.width',500)
@@ -319,6 +323,13 @@ def f_estafisticas_mad(param_data):
     rp_sell = np.mean(rp_sell)
     sortino_sell = sortino_rate(rp_sell, MAR, TDD_sell)
 
+
+    param_data["Máximo profit acumulado movil"] = param_data["capital_acm"].cummax() #maximo capital acumulado en cada momento de tiempo
+    param_data["drawdown"]=param_data["Máximo profit acumulado movil"]-param_data["capital_acm"]
+    max_drawdown = param_data["drawdown"].max()
+
+
+
     fecha_inicial = pd.to_datetime(profit_data["closetime"].min()).tz_localize('GMT')
     fecha_inicial = fecha_inicial + timedelta(days=1)
     fecha_final = pd.to_datetime(profit_data["closetime"].max()).tz_localize('GMT')
@@ -340,13 +351,17 @@ def f_estafisticas_mad(param_data):
         tracking_error = 0
     tracking_error = np.std(tracking_error)
     information_ratio =(np.mean(profit_data["profit_acm_d"])-np.mean(sp500_closes))/tracking_error
+
+
+
+
     metrics = {'Sharpe ratio': sharpe,
                'Sortino compra': sortino_buy,
                'Sortino venta': sortino_sell,
                'Information ratio': float(information_ratio)
     }
     ### terminar drawdown, drawup
-    return information_ratio
+    return metrics
 
 def f_be_de (param_data):
     param_data = cumulative_capital(param_data)
@@ -365,18 +380,21 @@ def f_be_de (param_data):
     ocurrencias = 0
 
 
-    info_sesgo = { 'Ocurrencias':
+    info_sesgo = {'Ocurrencias':
                        {'Cantidad':ocurrencias,
                         'Operaciones':{}
                         },#llave de ocurrencias y operaciones
 
-           '        Resultados':{'Ferrari':'Cavallino Rampante'}
+           'Resultados':{}
 
     }#diccionario anidado para resultados
     timestamp_ocurrencia = 0
     status_quo = 0
-    count_aversion=0
-    resultados= pd.DataFrame()
+    operacion=0
+    ocurrencias=0
+    pd_resultados={"Ocurrencias":{},"status_quo":{},"aversion_perdida":{},"sensibilidad_decreciente":{} }
+    count_status = 0
+    count_aversion = 0
     for i in range(len(winners)):
         winner = winners.iloc[i]
         for j in range(len(losers)):
@@ -386,51 +404,56 @@ def f_be_de (param_data):
             if closeDate_winner in date_range:
                 ocurrencias+=1
                 timestamp_ocurrencia = closeDate_winner # fecha de cierre de operación ganadora que incurre en el sesgo
+                info_sesgo["Ocurrencias"]["Timestamp"] = timestamp_ocurrencia
                 operacion ={'Operaciones': {'Ganadora': {'instrumento':winner["symbol"],'Volumen':winner["size"],
-                                                         'Sentido':winner["type"], "Capital_ganadora":winner["capital_acm"]
-                                                         } # checar si capital_acm es lo correcto
+                                                         'Sentido':winner["type"], "Capital_ganadora":winner["profit"]
+                                                         }
 
 
                     ,'Perdedora': {'instrumento':loser["symbol"],'Volumen':loser["size"],
-                                                         'Sentido':loser["type"], "Capital_ganadora":loser["capital_acm"]
+                                                         'Sentido':loser["type"], "Capital perdedora":loser["profit"]
                                                          } # checar si capital_acm es lo correcto
                                             }  # llave operaciones
                             ,"ratio_cp_capital_acm":loser["ratio_cp_capital_acm"],
                             "ratio_cg_capital_acm":winner["ratio_cg_capital_acm"],
                             "ratio_cp_cg" : loser["profit"]/winner["profit"]
                             } #llave operacion
+                if np.abs(loser["profit"])/loser["capital_acm"] < winner["profit"]/winner["capital_acm"]:
+                    count_status+=1
+                if np.abs(loser["profit"])/winner["profit"]>1.5:
+                    count_aversion+=1
 
-            if loser["profit"]/winner["profit"]< winner["profit"]/loser["profit"]:
-                status+=1
-            if loser["profit"]/winner["profit"] >1.5:
-                count_aversion+=1
 
-            numero_operacion = "Operacion_"+str(ocurrencias)
+
+
+
+            info_sesgo["Ocurrencias"]["Cantidad"]=ocurrencias
+            numero_operacion = "Ocurrencia_"+str(ocurrencias)
             info_sesgo["Ocurrencias"]["Operaciones"][numero_operacion] = operacion
+            pd_resultados["Ocurrencias"] = ocurrencias
 
-    resultados["Ocurrencias"] = ocurrencias
-    resultados["status_quo"] =(status/ocurrencias)*100
-    resultados["aversion perdida"]=(count_aversion/ocurrencias)*100
+
+
+
+    loser = losers["profit"].min()# operacion mas perdedora
+    winner = winners["profit"].max() # operacion mas ganadora
+
+    pd_resultados["status_quo"] = (count_status / ocurrencias) * 100
+    pd_resultados["aversion_perdida"] = (count_aversion / ocurrencias) * 100
+
+
+
+
+
+    positive_change= winners["capital_acm"].iloc[0]<winners["capital_acm"].iloc[-1]
+    profit_change = winners["profit"].iloc[0]>winners["profit"].iloc[-1] or np.abs(losers["profit"].iloc[0])>np.abs(losers["profit"].iloc[-1])
+    ratio = loser/winner>1.5
+    sensibilidad_decreciente = False
+    if positive_change== True and ratio == True and profit_change==True:
+        sensibilidad_decreciente=True
+    pd_resultados["sensibilidad_decreciente"]=sensibilidad_decreciente
+    pd_resultados=pd.DataFrame(data=pd_resultados,index=[0])
+    info_sesgo["Resultados"]=pd_resultados
 
     return info_sesgo
-
-
-
-
-
-
-
-
-
-
-
-
-#TERMINAR
-
-
-
-
-
-
-
 
