@@ -1,5 +1,0 @@
-"# lineas agregadas manualmente"
-
-"archivos/"
-
-".idea/"
