@@ -149,7 +149,13 @@ def f_estadisticas_ba (param_data):
     df2_ranking["rank"]= (list((rank_currency(i,param_data)) for i in traded_currencies)) # llenado de tabla de ranking
     df2_ranking=df2_ranking.sort_values(by="rank",ascending=False) # ordenamiento de mayor a menor
 
-    df1_tabla["Medias"] = list([measures[i] for i in measure_names]) # llenado de tabla
+    df1_tabla["medida"] =measure_names
+    df1_tabla["valor"] = list([measures[i] for i in measure_names]) # llenado de tabla
+    df1_tabla["descripción"]=["Operaciones totales","Operaciones ganadoras","Operaciones ganadoras de compra","Operaciones ganadoras venta"
+                               , "Operaciones perdedoras","Operaciones perdedoras de compra",
+                               "Operaciones perdedoras de venta","Mediana de profit de operaciones","Mediana de pisps de operaciones",
+                               "Ganadoras Totales/Operaciones Totales ","Ganadoras Totales/Perdedoras Totales",
+                               "Ganadoras Compras /Operaciones Totales","Ganadoras Ventas/Operaciones Totales"]
 
     stats_dict = {'df_1_tabla':df1_tabla,
                   'df_2_ranking': df2_ranking} # diccionario de salida
