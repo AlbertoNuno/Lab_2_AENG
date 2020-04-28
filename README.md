@@ -12,4 +12,4 @@ En este repositorio encontrará varios archivos, los cuales se describen a conti
 * Lab_2_AENG: jupyter notebook que contiene el desarrollo y explicación del archivo main.
 * Main : uso de las funciones creadas en los demás archivos.
 
-Para dudas, dudas o sugerencias favor de contactarme a través del siguiente correo electrónico: if706898@iteso.mx
+Para aclaraciones, dudas o sugerencias favor de contactarme a través del siguiente correo electrónico: if706898@iteso.mx
